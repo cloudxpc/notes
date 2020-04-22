@@ -1,8 +1,8 @@
 ---
 ---
 // Breakpoints
-$large-breakpoint: 96em;
-$medium-breakpoint: 64em;
+$large-breakpoint: 64em;
+$medium-breakpoint: 42em;
 
 // Headers
 $header-heading-color: #fff;
@@ -16,7 +16,7 @@ $body-link-color: #1e6bb8;
 $blockquote-text-color: #819198;
 
 // Code
-$code-bg-color: #f3f6fa;
+$code-bg-color: #ededed;
 $code-text-color: #567482;
 
 // Borders
@@ -25,3 +25,11 @@ $table-border-color: #e9ebec;
 $hr-border-color: #eff0f1;
 	
 @import "{{ site.theme }}";
+
+body {
+  font-family: "Microsoft Yahei", "微软雅黑", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.main-content {
+  max-width: 96rem;
+}
