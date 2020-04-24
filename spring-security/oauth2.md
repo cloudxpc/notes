@@ -237,6 +237,8 @@ public OAuth2AuthorizedClientManager authorizedClientManager(
 
 #### Authorization Code
 
+**初始化Authorization Request**
+
 `OAuth2AuthorizationRequestRedirectFilter`调用`OAuth2AuthorizationRequestResolver`来生成`OAuth2AuthorizationRequest`开启Authorization Code的验证流程。
 
 - `OAuth2AuthorizationRequestResolver`的默认实现：`DefaultOAuth2AuthorizationRequestResolver`
@@ -278,7 +280,7 @@ spring:
 - `{baseUrl}` 表示 `{baseScheme}://{baseHost}{basePort}{basePath}`
 - 在代理环境中，模板变量还可以确保应用`X-Forwarded-*`的值
 
-##### 自定义Authorization Request
+**自定义Authorization Request - OAuth2AuthorizationRequestResolver**
 
 添加附加参数：
 
@@ -335,7 +337,7 @@ spring:
             authorization-uri: https://dev-1234.oktapreview.com/oauth2/v1/authorize?prompt=consent
 ```
 
-##### AuthorizationRequestRepository
+**保存Authorization Request - AuthorizationRequestRepository**
 
 用于保存`OAuth2AuthorizationRequest`，从初始化直到接收到响应。保存的`OAuth2AuthorizationRequest`用来验证Authorization Response的合法性。
 
@@ -358,7 +360,192 @@ public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
 }
 ```
 
-- 默认实现：`HttpSessionOAuth2AuthorizationRequestRepository`
+- `AuthorizationRequestRepository`的默认实现：`HttpSessionOAuth2AuthorizationRequestRepository`
 
-### CommonOAuth2Provider
+**Requesting an Access Token - OAuth2AccessTokenResponseClient**
 
+- `OAuth2AccessTokenResponseClient`的默认实现: `DefaultAuthorizationCodeTokenResponseClient`
+
+用于向Authorization Server请求Access Token。默认实现`DefaultAuthorizationCodeTokenResponseClient`使用`RestOperations`向配置的Authorization Server Token Endpoint发送已有的authorization code来交换Access Token。
+
+**自定义Access Token Request**
+
+使用`DefaultAuthorizationCodeTokenResponseClient.setRequestEntityConverter()`来提供一个`Converter<OAuth2AuthorizationCodeGrantRequest, RequestEntity<?>>`，可以在发送Access Token Request之前对请求做处理。
+
+- 默认实现`OAuth2AuthorizationCodeGrantRequestEntityConverter`
+
+**自定义Access Token Response**
+
+使用`DefaultAuthorizationCodeTokenResponseClient.setRestOperations()`来提供一个自定义的`RestOperations`。默认的配置为：
+
+```java
+RestTemplate restTemplate = new RestTemplate(Arrays.asList(
+        new FormHttpMessageConverter(),
+        new OAuth2AccessTokenResponseHttpMessageConverter()));
+
+restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
+```
+
+`OAuth2AccessTokenResponseHttpMessageConverter`是默认的Response Converter，可以使用`OAuth2AccessTokenResponseHttpMessageConverter.setTokenResponseConverter()`来提供一个`Converter<Map<String, String>, OAuth2AccessTokenResponse>`用来将Response的参数转换为`OAuth2AccessTokenResponse`。
+
+配置：
+
+```java
+@EnableWebSecurity
+public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+            .oauth2Client(oauth2 -> oauth2
+                .authorizationCodeGrant(codeGrant -> codeGrant
+                    .accessTokenResponseClient(this.accessTokenResponseClient())
+                    ...
+                )
+            );
+    }
+}
+```
+
+#### Refresh Token
+
+默认实现`DefaultRefreshTokenTokenResponseClient`使用`RestOperations`向配置的Authorization Server Token Endpoint请求新的Token。
+
+**自定义Access Token Request**
+
+使用`DefaultRefreshTokenTokenResponseClient.setRequestEntityConverter()`来提供一个`Converter<OAuth2RefreshTokenGrantRequest, RequestEntity<?>>`
+
+- 默认实现: `OAuth2RefreshTokenGrantRequestEntityConverter`
+
+**自定义Access Token Response**
+
+使用`DefaultRefreshTokenTokenResponseClient.setRestOperations()`来提供`RestOperations`，默认实现:
+
+```java
+RestTemplate restTemplate = new RestTemplate(Arrays.asList(
+        new FormHttpMessageConverter(),
+        new OAuth2AccessTokenResponseHttpMessageConverter()));
+
+restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
+```
+
+使用`OAuth2AccessTokenResponseHttpMessageConverter.setTokenResponseConverter()`来提供自定义的`Converter<Map<String, String>, OAuth2AccessTokenResponse>`
+
+配置: 
+
+```java
+// Customize
+OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> refreshTokenTokenResponseClient = ...
+
+OAuth2AuthorizedClientProvider authorizedClientProvider =
+        OAuth2AuthorizedClientProviderBuilder.builder()
+                .authorizationCode()
+                .refreshToken(configurer -> configurer.accessTokenResponseClient(refreshTokenTokenResponseClient))
+                .build();
+
+...
+
+authorizedClientManager.setAuthorizedClientProvider(authorizedClientProvider);
+```
+
+在`authorization_code`或`password`模式下，`OAuth2RefreshToken`可能会随着Access Token Response一起返回。当`OAuth2AuthorizedClient.getRefreshToken()`可用，并且`OAuth2AuthorizedClient.getAccessToken()`过期时，会自动调用`RefreshTokenOAuth2AuthorizedClientProvider`来刷新Token。
+
+#### Client Credentials
+
+- 默认实现: `DefaultClientCredentialsTokenResponseClient`
+
+**自定义Access Token Request**
+
+调用`DefaultClientCredentialsTokenResponseClient.setRequestEntityConverter()`来提供一个`Converter<OAuth2ClientCredentialsGrantRequest, RequestEntity<?>>`
+
+- 默认实现: `OAuth2ClientCredentialsGrantRequestEntityConverter`
+
+**自定义Access Token Response**
+
+调用`DefaultClientCredentialsTokenResponseClient.setRestOperations()`来提供`RestOperations`。默认实现:
+
+```java
+RestTemplate restTemplate = new RestTemplate(Arrays.asList(
+        new FormHttpMessageConverter(),
+        new OAuth2AccessTokenResponseHttpMessageConverter()));
+
+restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
+```
+
+配置：
+
+```java
+// Customize
+OAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest> clientCredentialsTokenResponseClient = ...
+
+OAuth2AuthorizedClientProvider authorizedClientProvider =
+        OAuth2AuthorizedClientProviderBuilder.builder()
+                .clientCredentials(configurer -> configurer.accessTokenResponseClient(clientCredentialsTokenResponseClient))
+                .build();
+
+...
+
+authorizedClientManager.setAuthorizedClientProvider(authorizedClientProvider);
+```
+
+#### Resource Owner Password Credentials
+
+- 默认实现: `DefaultPasswordTokenResponseClient`
+
+**自定义Access Token Request**
+
+`DefaultPasswordTokenResponseClient.setRequestEntityConverter()`提供`Converter<OAuth2PasswordGrantRequest, RequestEntity<?>>`
+
+- 默认实现：`OAuth2PasswordGrantRequestEntityConverter`
+
+**自定义Access Token Response**
+
+`DefaultPasswordTokenResponseClient.setRestOperations()`，默认实现：
+
+```java
+RestTemplate restTemplate = new RestTemplate(Arrays.asList(
+        new FormHttpMessageConverter(),
+        new OAuth2AccessTokenResponseHttpMessageConverter()));
+
+restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
+```
+
+`OAuth2AccessTokenResponseHttpMessageConverter.setTokenResponseConverter()`提供自定义`Converter<Map<String, String>, OAuth2AccessTokenResponse>`
+
+配置：
+
+```java
+// Customize
+OAuth2AccessTokenResponseClient<OAuth2PasswordGrantRequest> passwordTokenResponseClient = ...
+
+OAuth2AuthorizedClientProvider authorizedClientProvider =
+        OAuth2AuthorizedClientProviderBuilder.builder()
+                .password(configurer -> configurer.accessTokenResponseClient(passwordTokenResponseClient))
+                .refreshToken()
+                .build();
+
+...
+
+authorizedClientManager.setAuthorizedClientProvider(authorizedClientProvider);
+```
+
+### Additional Features
+
+`@RegisteredOAuth2AuthorizedClient`注解可用来装饰方法参数从而获取`OAuth2AuthorizedClient`。
+
+```java
+@Controller
+public class OAuth2ClientController {
+
+    @GetMapping("/")
+    public String index(@RegisteredOAuth2AuthorizedClient("okta") OAuth2AuthorizedClient authorizedClient) {
+        OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
+
+        ...
+
+        return "index";
+    }
+}
+```
+
+- `@RegisteredOAuth2AuthorizedClient`是由`OAuth2AuthorizedClientArgumentResolver`来处理的，后者调用`OAuth2AuthorizedClientManager`来获取。
