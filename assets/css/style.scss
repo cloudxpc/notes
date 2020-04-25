@@ -17,7 +17,7 @@ $blockquote-text-color: #819198;
 
 // Code
 $code-bg-color: #ebebeb;
-$code-text-color: #3e3e3e;
+$code-text-color: #555555;
 
 // Borders
 $border-color: #dce6f0;
@@ -38,7 +38,7 @@ body {
   background-color: transparent;
   background-image: none;
   color: #3e3e3e;
-  height: 100px;
+  padding: 20px 0;
 }
 
 .project-name {
