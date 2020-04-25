@@ -11,13 +11,13 @@ $header-bg-color-secondary: #6588b5;
 
 // Text
 $section-headings-color: #2b2b2b;
-$body-text-color: #606c71;
+$body-text-color: #2b2b2b;
 $body-link-color: #1e6bb8;
 $blockquote-text-color: #819198;
 
 // Code
-$code-bg-color: #ededed;
-$code-text-color: #567482;
+$code-bg-color: #ebebeb;
+$code-text-color: #3e3e3e;
 
 // Borders
 $border-color: #dce6f0;
@@ -32,4 +32,19 @@ body {
 
 .main-content {
   max-width: 72rem;
+}
+
+.page-header {
+  background-color: transparent;
+  background-image: none;
+  color: #3e3e3e;
+  height: 100px;
+}
+
+.project-name {
+  margin: 20px 0;
+}
+
+.project-tagline {
+  margin: 10px 0;
 }
